@@ -1,0 +1,5 @@
+/shorebird-release-step
+/bin/
+_tmp/
+README.md.backup
+.bitrise.secrets.yml
