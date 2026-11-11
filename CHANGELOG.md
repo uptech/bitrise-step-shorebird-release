@@ -5,7 +5,7 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased] - 2.0.0
+## [2.0.0] - 2026-11-10
 
 Addresses the Bitrise StepLib review feedback on the 1.0.0 submission
 ([bitrise-steplib#5223](https://github.com/bitrise-io/bitrise-steplib/pull/5223)). Major version bump
