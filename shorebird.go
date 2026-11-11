@@ -22,8 +22,8 @@ func shorebirdBinPath() string {
 }
 
 // ensureShorebirdCLI returns a path to a working shorebird binary, either already on PATH, restored
-// from a Bitrise cache (~/.shorebird, when cache_level: all restored it from a previous run), or freshly
-// installed via Shorebird's official install script.
+// from a Bitrise cache (~/.shorebird, when a Restore Cache Step restored it from a previous run), or
+// freshly installed via Shorebird's official install script.
 func ensureShorebirdCLI() (string, error) {
 	if p, err := exec.LookPath("shorebird"); err == nil {
 		log.Donef("- Using shorebird CLI already on PATH: %s", p)
@@ -33,6 +33,7 @@ func ensureShorebirdCLI() (string, error) {
 	binPath := shorebirdBinPath()
 	if fi, err := os.Stat(binPath); err == nil && !fi.IsDir() {
 		log.Donef("- Using cached shorebird CLI at %s", binPath)
+		upgradeShorebirdCLI(binPath)
 		return binPath, nil
 	}
 
@@ -48,6 +49,35 @@ func ensureShorebirdCLI() (string, error) {
 	}
 	log.Donef("- Installed shorebird CLI at %s", binPath)
 	return binPath, nil
+}
+
+// upgradeShorebirdCLI brings a Shorebird CLI restored from cache up to date, so a cached install picks up
+// new Shorebird releases just like a fresh install would. Failures are non-fatal: the cached version still
+// works, it's just not the latest.
+func upgradeShorebirdCLI(binPath string) {
+	log.Printf("Upgrading cached shorebird CLI...")
+	cmd := command.New(binPath, "upgrade").SetStdout(os.Stdout).SetStderr(os.Stderr)
+	log.Donef("$ %s", cmd.PrintableCommandArgs())
+	if err := cmd.Run(); err != nil {
+		log.Warnf("Failed to upgrade shorebird CLI, continuing with the cached version: %s", err)
+	}
+}
+
+// shorebirdRevision returns the git commit the Shorebird install is checked out at (Shorebird's install
+// script clones the shorebird repo, with the binary at <root>/bin/shorebird). It changes with every
+// Shorebird update, so it's exported for use in cache keys.
+func shorebirdRevision(shorebirdBin string) (string, error) {
+	resolved, err := filepath.EvalSymlinks(shorebirdBin)
+	if err != nil {
+		return "", fmt.Errorf("resolve shorebird binary path: %w", err)
+	}
+	root := filepath.Dir(filepath.Dir(resolved))
+
+	out, err := command.New("git", "-C", root, "rev-parse", "HEAD").RunAndReturnTrimmedOutput()
+	if err != nil {
+		return "", fmt.Errorf("get git revision of %s: %s: %w", root, out, err)
+	}
+	return out, nil
 }
 
 // verifyShorebirdProject checks that a shorebird.yaml exists at the project root, failing fast with a

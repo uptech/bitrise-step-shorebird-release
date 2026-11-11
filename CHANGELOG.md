@@ -5,6 +5,33 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] - 2.0.0
+
+Addresses the Bitrise StepLib review feedback on the 1.0.0 submission
+([bitrise-steplib#5223](https://github.com/bitrise-io/bitrise-steplib/pull/5223)). Major version bump
+because inputs were renamed/removed.
+
+### Changed
+- **Breaking:** renamed list inputs to use the `_list` suffix, per Bitrise's step input guidelines:
+  `dart_defines` -> `dart_define_list`, `dart_define_files` -> `dart_define_file_list`,
+  `android_target_platform` -> `android_target_platform_list`.
+- **Breaking:** `shorebird_token` no longer defaults to `$SHOREBIRD_TOKEN` - it's now empty and must be set
+  explicitly (e.g. to `$SHOREBIRD_TOKEN`).
+- Step title is now "Create Shorebird Release".
+- `flutter_version` is no longer marked required, since leaving it empty auto-detects the version.
+
+### Added
+- `deps` block declaring `curl` and `git` (brew and apt_get).
+- `SHOREBIRD_CLI_REVISION` output: the git revision of the Shorebird CLI used, for use in Save Cache keys
+  so the `~/.shorebird` cache is refreshed whenever Shorebird updates.
+- A Shorebird CLI restored from cache is now upgraded (`shorebird upgrade`) before use, so cached installs
+  pick up new Shorebird releases like a fresh install does.
+
+### Removed
+- **Breaking:** `cache_level` input and all built-in (legacy) caching. Use Bitrise's key-based caching
+  Steps instead (Restore/Save Dart, Gradle, Cocoapods Cache, and Restore/Save Cache for `~/.shorebird`) -
+  see the "Caching" section of the Step description.
+
 ## [1.0.0] - 2026-09-16
 
 Initial release. Builds and publishes a new Shorebird release (`shorebird release`) for iOS and/or

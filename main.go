@@ -14,7 +14,6 @@ import (
 type config struct {
 	ProjectLocation string          `env:"project_location,dir"`
 	ShorebirdToken  stepconf.Secret `env:"shorebird_token"`
-	CacheLevel      string          `env:"cache_level,opt[all,none]"`
 	IsDebugMode     bool            `env:"is_debug_mode,opt[true,false]"`
 
 	Platform              string   `env:"platform,opt[both,ios,android]"`
@@ -23,13 +22,13 @@ type config struct {
 	Target                string   `env:"target"`
 	BuildName             string   `env:"build_name"`
 	BuildNumber           string   `env:"build_number"`
-	DartDefines           []string `env:"dart_defines,multiline"`
-	DartDefineFiles       []string `env:"dart_define_files,multiline"`
+	DartDefines           []string `env:"dart_define_list,multiline"`
+	DartDefineFiles       []string `env:"dart_define_file_list,multiline"`
 	Obfuscate             bool     `env:"obfuscate,opt[true,false]"`
 	SplitDebugInfo        string   `env:"split_debug_info"`
 	DryRun                bool     `env:"dry_run,opt[true,false]"`
 	AdditionalParams      string   `env:"additional_params"`
-	AndroidTargetPlatform []string `env:"android_target_platform,multiline"`
+	AndroidTargetPlatform []string `env:"android_target_platform_list,multiline"`
 
 	IOSCodesign           bool     `env:"ios_codesign,opt[true,false]"`
 	IOSCodesignIdentity   string   `env:"ios_codesign_identity"`
@@ -83,6 +82,14 @@ func main() {
 	shorebirdBin, err := ensureShorebirdCLI()
 	if err != nil {
 		failf("Run: failed to install/locate Shorebird CLI: %s", err)
+	}
+
+	if rev, err := shorebirdRevision(shorebirdBin); err != nil {
+		log.Warnf("Failed to determine shorebird CLI revision: %s", err)
+	} else if err := tools.ExportEnvironmentWithEnvman("SHOREBIRD_CLI_REVISION", rev); err != nil {
+		log.Warnf("Failed to export SHOREBIRD_CLI_REVISION: %s", err)
+	} else {
+		log.Donef("- SHOREBIRD_CLI_REVISION: %s", rev)
 	}
 
 	if err := verifyShorebirdProject(projectLocationAbs); err != nil {
@@ -155,26 +162,5 @@ Check that the output pattern and 'Project Location' are correct.`, spec.outputP
 		}
 	} else {
 		log.Debugf("Could not parse a release version from the Shorebird CLI's output")
-	}
-
-	if cfg.CacheLevel == "all" {
-		fmt.Println()
-		log.Infof("Collecting cache")
-
-		if err := cacheCocoapodsDeps(projectLocationAbs); err != nil {
-			log.Warnf("Failed to collect cocoapods cache, error: %s", err)
-		}
-		if err := cacheCarthageDeps(projectLocationAbs); err != nil {
-			log.Warnf("Failed to collect carthage cache, error: %s", err)
-		}
-		if err := cacheAndroidDeps(projectLocationAbs); err != nil {
-			log.Warnf("Failed to collect android cache, error: %s", err)
-		}
-		if err := cacheFlutterDeps(projectLocationAbs); err != nil {
-			log.Warnf("Failed to collect flutter cache, error: %s", err)
-		}
-		if err := cacheShorebirdCLI(); err != nil {
-			log.Warnf("Failed to collect shorebird CLI cache, error: %s", err)
-		}
 	}
 }

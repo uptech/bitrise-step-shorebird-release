@@ -8,7 +8,7 @@
 # - Bitrise CLI guides: http://devcenter.bitrise.io/bitrise-cli/
 
 title: |-
-  Shorebird Release
+  Create Shorebird Release
 summary: |-
   Builds and publishes a new Shorebird release for iOS and/or Android.
 description: |
@@ -32,6 +32,34 @@ description: |
   Set **Platform** to `both` to release iOS and Android in one Step run - each platform is built and
   published as its own `shorebird release` invocation, registered together as one version release.
   Releasing for iOS (or both iOS and Android together) requires a macOS runner.
+
+  ### Caching
+
+  This Step doesn't cache anything itself. Use Bitrise's
+  [key-based caching](https://docs.bitrise.io/en/bitrise-ci/dependencies-and-caching/dependencies-and-caching-overview#key-based-caching)
+  Steps around it instead:
+  - **Restore Dart Cache** / **Save Dart Cache** for pub packages
+  - **Restore Gradle Cache** / **Save Gradle Cache** for Android builds
+  - **Restore Cocoapods Cache** / **Save Cocoapods Cache** for iOS builds
+  - **Restore Cache** / **Save Cache** for the Shorebird CLI itself (`~/.shorebird`)
+
+  When `~/.shorebird` is restored, the Step runs `shorebird upgrade` instead of re-running the Shorebird
+  install script, and exports the installed CLI's git revision as `SHOREBIRD_CLI_REVISION`. Include it in
+  the Save Cache key so the cache is refreshed whenever Shorebird updates:
+
+  ```yaml
+  - restore-cache@3:
+      inputs:
+      - key: shorebird-{{ .OS }}-{{ .Arch }}-
+  - shorebird-release@2: {}
+  - save-cache@1:
+      inputs:
+      - key: shorebird-{{ .OS }}-{{ .Arch }}-{{ getenv "SHOREBIRD_CLI_REVISION" }}
+      - paths: ~/.shorebird
+      - is_key_unique: "true"
+  ```
+
+  Restore Cache's key acts as a prefix, so it restores the most recently saved Shorebird cache.
 
   ### Building a smaller Android APK for one architecture
 
@@ -88,6 +116,14 @@ is_requires_admin_user: true
 is_always_run: false
 is_skippable: false
 
+deps:
+  brew:
+  - name: curl
+  - name: git
+  apt_get:
+  - name: curl
+  - name: git
+
 toolkit:
   go:
     package_name: github.com/uptech/shorebird-release-step
@@ -101,7 +137,7 @@ inputs:
       The root dir of your Flutter project. Must contain a `shorebird.yaml` (created by running `shorebird init`
       locally and committing the result) - the Step fails with a clear error if it's missing.
     is_required: true
-- shorebird_token: $SHOREBIRD_TOKEN
+- shorebird_token: ""
   opts:
     title: Shorebird API token
     summary: Auth token used by the Shorebird CLI (from a Shorebird Console API key)
@@ -109,8 +145,8 @@ inputs:
       Exported as the `SHOREBIRD_TOKEN` env var before invoking the Shorebird CLI. The Step fails fast if
       this is empty.
 
-      Create an API key in the Shorebird Console under Account -> API Keys, and store it as a Bitrise Secret
-      (mark it sensitive).
+      Create an API key in the Shorebird Console under Account -> API Keys, store it as a Bitrise Secret
+      (mark it sensitive), and reference it here, e.g. `$SHOREBIRD_TOKEN`.
     is_required: true
     is_sensitive: true
 - platform: both
@@ -136,7 +172,6 @@ inputs:
       of the system Flutter already on `PATH` (via `flutter --version --machine`) and pass that value
       through. If Flutter isn't installed/found on `PATH` at all, the Step fails with a clear error - a
       Flutter Install (or FVM) Step **must** run before this Step in that case.
-    is_required: true
 - flavor: ""
   opts:
     category: Options
@@ -187,7 +222,7 @@ inputs:
     title: Split debug info directory
     summary: Output debug symbol files to this directory when obfuscating.
     description: Maps to `--split-debug-info=<dir>`.
-- dart_defines: ""
+- dart_define_list: ""
   opts:
     category: Options
     title: Dart defines
@@ -198,7 +233,7 @@ inputs:
       API_URL=https://example.com
       ENABLE_FOO=true
       ```
-- dart_define_files: ""
+- dart_define_file_list: ""
   opts:
     category: Options
     title: Dart define files
@@ -266,7 +301,7 @@ inputs:
     value_options:
     - apk
     - appbundle
-- android_target_platform: ""
+- android_target_platform_list: ""
   opts:
     category: Android options
     title: Android target platform(s)
@@ -290,20 +325,6 @@ inputs:
       Separate multiple patterns with a newline. Only the selected **Android artifact type** is exported,
       even if the pattern matches both apk and aab files.
     is_required: true
-- cache_level: all
-  opts:
-    title: Build cache
-    summary: Enable or disable caching
-    description: |-
-      If enabled, will cache:
-      - pub packages
-      - Android (gradle) cache
-      - Carthage / Cocoapods dependencies
-      - the installed Shorebird CLI (`~/.shorebird`)
-    is_required: true
-    value_options:
-    - all
-    - none
 - is_debug_mode: "false"
   opts:
     title: Debug mode?
@@ -334,6 +355,13 @@ outputs:
   opts:
     title: The created .ipa file's path
     summary: The created .ipa file's path.
+- SHOREBIRD_CLI_REVISION:
+  opts:
+    title: Shorebird CLI revision
+    summary: Git revision of the Shorebird CLI used for the release, for use in cache keys.
+    description: |-
+      Git revision of the Shorebird CLI used for the release. Changes with every Shorebird update, so use it
+      in a Save Cache key for `~/.shorebird` - see "Caching" above.
 - SHOREBIRD_RELEASE_VERSION:
   opts:
     title: Shorebird release version

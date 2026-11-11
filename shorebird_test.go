@@ -1,6 +1,9 @@
 package main
 
 import (
+	"os"
+	"os/exec"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -112,4 +115,25 @@ func TestBuildReleaseArgs_AdditionalParams(t *testing.T) {
 		"--",
 		"--split-per-abi",
 	}, args)
+}
+
+func TestShorebirdRevision(t *testing.T) {
+	root := t.TempDir()
+	binPath := filepath.Join(root, "bin", "shorebird")
+	require.NoError(t, os.MkdirAll(filepath.Dir(binPath), 0o755))
+	require.NoError(t, os.WriteFile(binPath, []byte("#!/bin/sh\n"), 0o755))
+
+	git := func(args ...string) string {
+		out, err := exec.Command("git", append([]string{"-C", root}, args...)...).CombinedOutput()
+		require.NoError(t, err, string(out))
+		return string(out)
+	}
+	git("init", "-q")
+	git("add", ".")
+	git("-c", "user.name=test", "-c", "user.email=test@example.com", "commit", "-q", "-m", "init")
+	want := git("rev-parse", "HEAD")
+
+	rev, err := shorebirdRevision(binPath)
+	require.NoError(t, err)
+	assert.Equal(t, want[:len(want)-1], rev)
 }
